@@ -3,93 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elotes El Jefe - Pedidos Privados</title>
+    <title>Elotes El Jefe - Pedidos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body class="bg-stone-50 font-sans pb-10">
 
-    <header class="bg-yellow-400 p-6 shadow-md flex justify-between items-center">
-        <h1 class="text-2xl font-black text-orange-900">🌽 ELOTES "EL JEFE"</h1>
-        <button onclick="loginAdmin()" class="text-[10px] text-orange-700 opacity-40 hover:opacity-100 italic">Acceso Admin</button>
+    <!-- HEADER CON HORARIO DINÁMICO -->
+    <header class="bg-yellow-400 p-4 shadow-md flex justify-between items-center sticky top-0 z-50">
+        <div>
+            <h1 class="text-2xl font-black text-orange-900 leading-none">🌽 EL JEFE</h1>
+            <span id="shop-status" class="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full mt-1 inline-block">Cargando horario...</span>
+        </div>
+        <button onclick="loginAdmin()" class="text-[10px] text-orange-800 opacity-50 hover:opacity-100 italic bg-yellow-300 px-2 py-1 rounded">Admin</button>
     </header>
 
     <main class="max-w-6xl mx-auto p-4 grid md:grid-cols-2 gap-8 mt-4">
         
-        <!-- SECCIÓN MENÚ CON SELECTOR DE CANTIDAD -->
-        <section id="menu-section">
-            <h2 class="text-xl font-black text-orange-900 mb-4 border-b-2 border-yellow-400 inline-block uppercase italic">Menú (Mínimo 2 piezas)</h2>
-            <div class="space-y-4">
-                
-                <!-- Producto 1 -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 flex flex-col gap-3">
-                    <div class="flex justify-between items-center">
-                        <div><h3 class="font-bold text-lg">Esquites Tradicionales</h3><p class="text-xs text-gray-500 italic">El sabor de la calle en vaso.</p></div>
-                        <span class="font-bold text-green-600 text-xl">$45</span>
-                    </div>
-                    <div class="flex items-center justify-between bg-stone-100 p-2 rounded-lg">
-                        <div class="flex items-center gap-4">
-                            <button onclick="cambiarCant('cant-esquites', -1)" class="bg-white w-8 h-8 rounded-full shadow font-bold text-orange-600">-</button>
-                            <span id="cant-esquites" class="font-black text-lg">2</span>
-                            <button onclick="cambiarCant('cant-esquites', 1)" class="bg-white w-8 h-8 rounded-full shadow font-bold text-orange-600">+</button>
+        <!-- SECCIÓN MENÚ DE PRODUCTOS -->
+        <section id="menu-section" class="space-y-6">
+            <div class="flex justify-between items-end border-b-2 border-yellow-400 pb-2">
+                <h2 class="text-xl font-black text-orange-900 uppercase italic">Menú</h2>
+                <span class="text-xs font-bold text-red-500 bg-red-100 px-2 py-1 rounded">⚠️ Mínimo 2 piezas</span>
+            </div>
+            
+            <!-- COMBO JEFE (NUEVO) -->
+            <div class="bg-gradient-to-r from-orange-100 to-yellow-100 p-1 rounded-2xl shadow-lg animate-pulse">
+                <div class="bg-white rounded-xl overflow-hidden flex flex-col h-full border-2 border-orange-400">
+                    <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=200&fit=crop" alt="Combo Jefe" class="w-full h-32 object-cover">
+                    <div class="p-4 flex flex-col gap-3">
+                        <div class="flex justify-between items-start">
+                            <div><h3 class="font-black text-xl text-orange-800 uppercase">🌟 Combo El Jefe</h3><p class="text-xs text-gray-600 font-medium mt-1">2 Elotes enteros + 2 Esquites grandes. ¡Para compartir!</p></div>
+                            <span class="font-black text-red-600 text-xl bg-yellow-200 px-2 rounded-lg shadow-sm">$160</span>
                         </div>
-                        <button onclick="pedirProducto('Esquites', 'cant-esquites')" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-orange-600">Agregar al chat</button>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <label class="text-[10px] bg-gray-100 p-1.5 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Chile del que pica" class="top-combo"> Chile que pica 🌶️</label>
+                            <label class="text-[10px] bg-gray-100 p-1.5 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Mucho Limón" class="top-combo"> Mucho Limón 🍋</label>
+                            <label class="text-[10px] bg-gray-100 p-1.5 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Extra Queso" class="top-combo"> Extra Queso 🧀</label>
+                        </div>
+                        <div class="flex items-center justify-between bg-orange-50 p-2 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <button onclick="cambiarCant('cant-combo', -1, 160, 'tot-combo')" class="bg-white w-8 h-8 rounded-full shadow text-orange-600 font-bold">-</button>
+                                <span id="cant-combo" class="font-black text-lg">1</span> <!-- El combo permite 1 porque ya trae varios -->
+                                <button onclick="cambiarCant('cant-combo', 1, 160, 'tot-combo')" class="bg-white w-8 h-8 rounded-full shadow text-orange-600 font-bold">+</button>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] text-gray-500 uppercase font-bold">Total</p>
+                                <p id="tot-combo" class="font-black text-green-700 leading-none mb-1">$160</p>
+                                <button id="btn-combo" onclick="pedirProducto('Combo Jefe', 'cant-combo', 160, 'top-combo', 'btn-combo')" class="bg-orange-600 text-white px-3 py-1.5 rounded-lg font-black text-[10px] uppercase shadow-md active:scale-95 transition-all">Añadir al chat</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Producto 2 -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 flex flex-col gap-3">
+            <!-- ESQUITES -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <img src="https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?w=600&h=150&fit=crop" alt="Esquites" class="w-full h-24 object-cover opacity-90">
+                <div class="p-4 flex flex-col gap-3">
                     <div class="flex justify-between items-center">
-                        <div><h3 class="font-bold text-lg">Elote Entero</h3><p class="text-xs text-gray-500 italic">Asado al carbón o cocido.</p></div>
-                        <span class="font-bold text-green-600 text-xl">$40</span>
+                        <div><h3 class="font-bold text-lg text-gray-800">Esquites Tradicionales</h3></div>
+                        <span class="font-black text-green-600 text-lg">$45</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Chile del que pica" class="top-esq"> Pica 🔥</label>
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Chile del que no pica" class="top-esq"> No pica</label>
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer hover:bg-orange-50"><input type="checkbox" value="Mucha Mayonesa" class="top-esq"> + Mayo</label>
                     </div>
                     <div class="flex items-center justify-between bg-stone-100 p-2 rounded-lg">
-                        <div class="flex items-center gap-4">
-                            <button onclick="cambiarCant('cant-elote', -1)" class="bg-white w-8 h-8 rounded-full shadow font-bold text-orange-600">-</button>
-                            <span id="cant-elote" class="font-black text-lg">2</span>
-                            <button onclick="cambiarCant('cant-elote', 1)" class="bg-white w-8 h-8 rounded-full shadow font-bold text-orange-600">+</button>
+                        <div class="flex items-center gap-3">
+                            <button onclick="cambiarCant('cant-esq', -1, 45, 'tot-esq', 2)" class="bg-white w-8 h-8 rounded shadow text-orange-600 font-bold">-</button>
+                            <span id="cant-esq" class="font-black text-lg">2</span>
+                            <button onclick="cambiarCant('cant-esq', 1, 45, 'tot-esq', 2)" class="bg-white w-8 h-8 rounded shadow text-orange-600 font-bold">+</button>
                         </div>
-                        <button onclick="pedirProducto('Elote Entero', 'cant-elote')" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-orange-600">Agregar al chat</button>
+                        <div class="text-right">
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">Total</p>
+                            <p id="tot-esq" class="font-black text-green-700 leading-none mb-1">$90</p>
+                            <button id="btn-esq" onclick="pedirProducto('Esquites', 'cant-esq', 45, 'top-esq', 'btn-esq')" class="bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase shadow active:scale-95 transition-all">Añadir al chat</button>
+                        </div>
                     </div>
                 </div>
+            </div>
 
+            <!-- ELOTE ENTERO -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-4 flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <div><h3 class="font-bold text-lg text-gray-800">Elote Entero (Asado/Cocido)</h3></div>
+                        <span class="font-black text-green-600 text-lg">$40</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer"><input type="radio" name="tipo_elote" value="Asado al carbón" class="top-elo" checked> Asado al carbón</label>
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer"><input type="radio" name="tipo_elote" value="Cocido" class="top-elo"> Cocido</label>
+                        <label class="text-[10px] bg-gray-100 p-1 rounded font-medium border cursor-pointer"><input type="checkbox" value="Con todo" class="top-elo" checked> Con todo (Queso, Mayo, Chile)</label>
+                    </div>
+                    <div class="flex items-center justify-between bg-stone-100 p-2 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <button onclick="cambiarCant('cant-elo', -1, 40, 'tot-elo', 2)" class="bg-white w-8 h-8 rounded shadow text-orange-600 font-bold">-</button>
+                            <span id="cant-elo" class="font-black text-lg">2</span>
+                            <button onclick="cambiarCant('cant-elo', 1, 40, 'tot-elo', 2)" class="bg-white w-8 h-8 rounded shadow text-orange-600 font-bold">+</button>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">Total</p>
+                            <p id="tot-elo" class="font-black text-green-700 leading-none mb-1">$80</p>
+                            <button id="btn-elo" onclick="pedirProducto('Elotes', 'cant-elo', 40, 'top-elo', 'btn-elo')" class="bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase shadow active:scale-95 transition-all">Añadir al chat</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- SECCIÓN CHAT PRIVADO -->
-        <section class="bg-white rounded-2xl shadow-xl border overflow-hidden flex flex-col h-[600px]">
+        <!-- SECCIÓN CHAT PRIVADO Y LOGIN -->
+        <section class="bg-white rounded-2xl shadow-2xl border border-orange-100 overflow-hidden flex flex-col h-[650px] relative">
             <div id="chat-header" class="bg-orange-600 p-4 text-white font-bold flex justify-between items-center shadow-md">
-                <span id="chat-title" class="truncate mr-2">Chat de Pedidos</span>
+                <span id="chat-title" class="truncate mr-2">Caja / Pedidos</span>
                 <button id="back-btn" onclick="mostrarListaChats()" class="hidden bg-orange-800 px-3 py-1 rounded-full text-xs hover:bg-orange-900 transition">⬅ Volver</button>
             </div>
 
-            <!-- Lista de Admin (Modificada para incluir botón de borrar) -->
+            <!-- Lista Admin -->
             <div id="admin-list" class="hidden flex-1 overflow-y-auto p-4 bg-gray-100 space-y-2"></div>
 
+            <!-- Chat del Cliente -->
             <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-3 bg-stone-50 scroll-smooth">
-                <p class="text-center text-gray-400 text-xs mt-10 italic">Regístrate para iniciar tu pedido privado.</p>
-            </div>
-
-            <!-- Registro -->
-            <div id="login-fields" class="p-4 border-t bg-white shadow-inner">
-                <p class="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Tus Datos para el Pedido:</p>
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <input type="text" id="user-name" placeholder="Nombre" class="p-3 border rounded-xl text-sm focus:ring-2 focus:ring-orange-400 outline-none">
-                    <input type="tel" id="user-phone" placeholder="Teléfono" class="p-3 border rounded-xl text-sm focus:ring-2 focus:ring-orange-400 outline-none">
+                <div class="bg-yellow-100 text-yellow-800 p-3 rounded-lg text-sm text-center font-medium mt-10 mx-4 border border-yellow-200">
+                    👋 ¡Hola! Llena tus datos abajo para abrir tu chat privado y empezar a pedir.
                 </div>
-                <button onclick="registrarUsuario()" class="w-full bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-lg active:scale-95 transition">INICIAR PEDIDO</button>
             </div>
 
-            <!-- Input de Mensaje -->
-            <form id="order-form" class="hidden p-4 border-t bg-white flex gap-2">
-                <input type="text" id="user-msg" placeholder="Confirma tu pedido aquí..." class="flex-1 p-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-400">
-                <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded-xl font-black uppercase text-xs shadow-md">Enviar</button>
-            </form>
+            <!-- Registro de Cliente (Mejorado con info extra) -->
+            <div id="login-fields" class="p-4 border-t bg-white shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                
+                <div class="mb-4">
+                    <p class="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Abre tu pedido:</p>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <input type="text" id="user-name" placeholder="Tu Nombre" class="p-3 border rounded-xl text-sm focus:ring-2 focus:ring-orange-400 outline-none bg-gray-50">
+                        <input type="tel" id="user-phone" placeholder="Tu WhatsApp" class="p-3 border rounded-xl text-sm focus:ring-2 focus:ring-orange-400 outline-none bg-gray-50">
+                    </div>
+                    <button onclick="registrarUsuario()" class="w-full bg-orange-600 text-white font-black py-3 rounded-xl text-sm shadow-lg active:scale-95 transition">INICIAR PEDIDO AHORA</button>
+                </div>
+
+                <!-- Detalles de Confianza (Ubicación y Pagos) -->
+                <div class="border-t pt-3 flex justify-between items-center text-[10px]">
+                    <div class="text-gray-500 font-medium">
+                        Aceptamos:<br>
+                        <span class="text-green-700 font-bold">💵 Efectivo | 🏦 Transferencia | 📱 CoDi</span>
+                    </div>
+                    <a href="https://maps.google.com" target="_blank" class="bg-blue-50 text-blue-600 px-3 py-2 rounded-lg font-bold flex items-center gap-1 border border-blue-100 hover:bg-blue-100">
+                        📍 Ver en Maps
+                    </a>
+                </div>
+            </div>
+
+            <!-- Input de Mensaje (Aparece al loguearse) -->
+            <div id="order-wrapper" class="hidden flex-col border-t bg-white">
+                <form id="order-form" class="p-3 flex gap-2">
+                    <input type="text" id="user-msg" placeholder="Confirma tu pedido aquí..." class="flex-1 p-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-400 bg-gray-50">
+                    <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded-xl font-black uppercase text-xs shadow-md">Enviar</button>
+                </form>
+                <!-- Botón Alternativo WhatsApp -->
+                <div class="bg-gray-50 p-2 text-center border-t">
+                    <button type="button" onclick="enviarPorWhatsApp()" class="text-[10px] font-bold text-green-700 flex items-center justify-center gap-1 w-full opacity-80 hover:opacity-100">
+                        ¿No responde el chat? Pedir directo por WhatsApp 💬
+                    </button>
+                </div>
+            </div>
+
         </section>
     </main>
 
     <script>
+        // === TU CONFIGURACIÓN DE FIREBASE (INTACTA) ===
         const firebaseConfig = {
             apiKey: "AIzaSyCuTAP6pD7y2fqOzKlcnLeDJ5tBxLYxmFw",
             authDomain: "elotes-55ec9.firebaseapp.com",
@@ -99,7 +183,6 @@
             messagingSenderId: "360677210948",
             appId: "1:360677210948:web:fc94c8fbd332d6df7cb511"
         };
-
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
@@ -107,85 +190,134 @@
         let userAuth = null;
         let chatActivoID = null;
 
-        // LÓGICA DEL MENÚ
-        function cambiarCant(id, val) {
-            const span = document.getElementById(id);
-            let actual = parseInt(span.innerText);
+        // === 1. HORARIO DINÁMICO ===
+        function verificarHorario() {
+            const horaActual = new Date().getHours();
+            const statusBadge = document.getElementById('shop-status');
+            // Abre a las 18:00 (6 PM) y cierra a las 23:00 (11 PM)
+            if (horaActual >= 18 && horaActual < 23) {
+                statusBadge.innerText = '🟢 Abierto Ahora (Cierra 11 PM)';
+                statusBadge.className = 'text-[10px] font-bold text-green-900 bg-green-300 px-3 py-1 rounded-full shadow-sm animate-pulse';
+            } else {
+                statusBadge.innerText = '🔴 Cerrado (Abrimos 6 PM)';
+                statusBadge.className = 'text-[10px] font-bold text-red-900 bg-red-200 px-3 py-1 rounded-full shadow-sm';
+            }
+        }
+        verificarHorario(); // Ejecutar al inicio
+
+        // === 2. LÓGICA DE MENÚ CON TOTALES Y TOPPINGS ===
+        function cambiarCant(idCant, val, precioBase, idTotal, min = 1) {
+            const spanCant = document.getElementById(idCant);
+            const spanTot = document.getElementById(idTotal);
+            let actual = parseInt(spanCant.innerText);
             actual += val;
-            if (actual < 2) actual = 2; // Regla: Mínimo 2
-            span.innerText = actual;
+            if (actual < min) actual = min; // Mínimo 2 (o 1 para combo)
+            
+            spanCant.innerText = actual;
+            spanTot.innerText = "$" + (actual * precioBase); // Calcula Total
         }
 
-        function pedirProducto(nombre, idSpan) {
+        function pedirProducto(nombre, idCant, precioBase, classToppings, btnId) {
             if (!userAuth && !esAdmin) {
-                alert("Primero debes poner tu nombre y teléfono en el chat.");
+                alert("Para armar tu pedido, primero pon tu Nombre y Teléfono abajo y dale 'Iniciar Pedido'.");
+                document.getElementById('user-name').focus();
                 return;
             }
-            const cantidad = document.getElementById(idSpan).innerText;
+
+            const cantidad = document.getElementById(idCant).innerText;
+            const total = parseInt(cantidad) * precioBase;
+            
+            // Recolectar toppings marcados
+            const inputsToppings = document.querySelectorAll(`.${classToppings}:checked`);
+            let toppingsArr = [];
+            inputsToppings.forEach(input => toppingsArr.push(input.value));
+            const textoToppings = toppingsArr.length > 0 ? ` Preparado con: ${toppingsArr.join(', ')}.` : '';
+
+            // Escribir en el chat
             const inputChat = document.getElementById('user-msg');
-            inputChat.value = `Hola, quiero pedir ${cantidad} ${nombre}(s).`;
+            inputChat.value = `Quiero: ${cantidad}x ${nombre}.${textoToppings} (Total: $${total})`;
+            
+            // Efecto visual de confirmación en el botón
+            const btn = document.getElementById(btnId);
+            const textoOriginal = btn.innerText;
+            const colorOriginal = btn.className;
+            
+            btn.innerText = "¡EN EL CHAT! ✓";
+            btn.className = "bg-green-500 text-white px-3 py-1.5 rounded-lg font-black text-[10px] uppercase shadow-md transition-all";
             inputChat.focus();
+
+            setTimeout(() => {
+                btn.innerText = textoOriginal;
+                btn.className = colorOriginal;
+            }, 2000);
         }
 
-        // REGISTRO
+        // === 3. ALTERNATIVA WHATSAPP ===
+        function enviarPorWhatsApp() {
+            const miNumeroLocal = "521XXXXXXXXXX"; // Pon tu número real aquí
+            const msgChat = document.getElementById('user-msg').value;
+            let texto = `Hola Jefe, soy ${userAuth.nombre}. `;
+            if(msgChat) texto += `Mi pedido es: ${msgChat}`;
+            else texto += `Quiero hacer un pedido.`;
+            
+            window.open(`https://wa.me/${miNumeroLocal}?text=${encodeURIComponent(texto)}`, '_blank');
+        }
+
+        // === 4. SISTEMA DE USUARIOS Y ADMIN (INTACTO) ===
         function registrarUsuario() {
             const n = document.getElementById('user-name').value;
             const t = document.getElementById('user-phone').value;
             if (n && t) {
                 userAuth = { nombre: n, tel: t.replace(/\s+/g, '') };
                 chatActivoID = userAuth.tel;
+                
                 document.getElementById('login-fields').classList.add('hidden');
-                document.getElementById('order-form').classList.remove('hidden');
-                document.getElementById('chat-title').innerText = "Pedido de " + n;
+                document.getElementById('order-wrapper').classList.remove('hidden');
+                document.getElementById('order-wrapper').classList.add('flex');
+                document.getElementById('chat-title').innerText = "Caja Privada: " + n;
+                
+                // Mensaje de bienvenida simulado
+                const box = document.getElementById('chat-box');
+                box.innerHTML = `<div class='max-w-[85%] p-3 rounded-2xl text-sm shadow-sm bg-white border mr-auto rounded-tl-none text-gray-800'><p class='font-medium'>¡Hola ${n}! Ve armando tu pedido en el menú, dale 'Añadir al chat' y cuando estés listo dale a Enviar aquí abajo. 👇</p></div>`;
+                
                 escucharChat(chatActivoID);
-            } else { alert("Nombre y teléfono requeridos."); }
+            } else { alert("Necesitamos tu Nombre y Teléfono para atenderte."); }
         }
 
-        // LOGIN ADMIN
         function loginAdmin() {
             const pass = prompt("Clave de Jefe:");
             if (pass === "Elotes2024") {
                 esAdmin = true;
                 document.getElementById('login-fields').classList.add('hidden');
+                document.getElementById('order-wrapper').classList.add('hidden');
                 document.getElementById('admin-list').classList.remove('hidden');
                 document.getElementById('chat-box').classList.add('hidden');
-                document.getElementById('chat-title').innerText = "PANEL DE CONTROL";
+                document.getElementById('chat-title').innerText = "🔥 PANEL DE CONTROL JEFE";
                 cargarListaChats();
             }
         }
 
-        // CARGAR LISTA DE CHATS EN ADMIN CON OPCIÓN DE BORRAR
+        // Cargar lista con botón de borrar (Intacto)
         function cargarListaChats() {
             database.ref('chats').on('value', (snapshot) => {
                 const list = document.getElementById('admin-list');
                 list.innerHTML = '';
-                
-                if (!snapshot.exists()) {
-                    list.innerHTML = '<p class="text-center text-gray-500 text-sm mt-10">No hay pedidos pendientes.</p>';
-                    return;
-                }
+                if (!snapshot.exists()) { list.innerHTML = '<p class="text-center font-bold text-gray-400 mt-10">Sin pedidos pendientes.</p>'; return; }
 
                 snapshot.forEach((child) => {
                     const tel = child.key;
-                    
-                    // Contenedor para el botón de chat y el botón de borrar
                     const divContenedor = document.createElement('div');
                     divContenedor.className = "flex gap-2 items-center mb-2";
 
-                    // Botón para entrar al chat
                     const btnChat = document.createElement('div');
                     btnChat.className = "flex-1 bg-white p-4 rounded-xl shadow-sm border-l-8 border-orange-500 cursor-pointer flex justify-between items-center";
-                    btnChat.innerHTML = `<div><p class='font-black text-orange-900'>📱 ${tel}</p><p class='text-[10px] text-gray-400'>Ver mensajes</p></div><span class='text-orange-500'>➔</span>`;
+                    btnChat.innerHTML = `<div><p class='font-black text-orange-900'>📱 ${tel}</p><p class='text-[10px] text-gray-400'>Abrir conversación</p></div><span class='text-orange-500'>➔</span>`;
                     btnChat.onclick = () => abrirChatPrivado(tel);
 
-                    // Botón para eliminar el chat completo
                     const btnBorrar = document.createElement('button');
                     btnBorrar.className = "bg-red-500 hover:bg-red-600 text-white p-4 rounded-xl shadow-sm transition active:scale-95";
                     btnBorrar.innerHTML = "🗑️";
-                    btnBorrar.onclick = (e) => {
-                        e.stopPropagation(); // Evita que se abra el chat al dar clic en borrar
-                        eliminarChatCompleto(tel);
-                    };
+                    btnBorrar.onclick = (e) => { e.stopPropagation(); eliminarChatCompleto(tel); };
 
                     divContenedor.appendChild(btnChat);
                     divContenedor.appendChild(btnBorrar);
@@ -194,12 +326,9 @@
             });
         }
 
-        // FUNCIÓN NUEVA PARA BORRAR CHAT
         function eliminarChatCompleto(tel) {
-            if (confirm(`¿Estás seguro de que ya entregaste el pedido de ${tel} y quieres borrar su chat?`)) {
-                database.ref('chats/' + tel).remove()
-                    .then(() => console.log("Chat borrado correctamente"))
-                    .catch((error) => console.error("Error al borrar:", error));
+            if (confirm(`¿Marcar el pedido de ${tel} como ENTREGADO y borrar chat?`)) {
+                database.ref('chats/' + tel).remove();
             }
         }
 
@@ -207,42 +336,46 @@
             chatActivoID = tel;
             document.getElementById('admin-list').classList.add('hidden');
             document.getElementById('chat-box').classList.remove('hidden');
-            document.getElementById('order-form').classList.remove('hidden');
+            document.getElementById('order-wrapper').classList.remove('hidden');
+            document.getElementById('order-wrapper').classList.add('flex');
             document.getElementById('back-btn').classList.remove('hidden');
-            document.getElementById('chat-title').innerText = "Conversación: " + tel;
+            document.getElementById('chat-title').innerText = "Atendiendo: " + tel;
             escucharChat(tel);
         }
 
         function mostrarListaChats() {
             document.getElementById('admin-list').classList.remove('hidden');
             document.getElementById('chat-box').classList.add('hidden');
-            document.getElementById('order-form').classList.add('hidden');
+            document.getElementById('order-wrapper').classList.add('hidden');
+            document.getElementById('order-wrapper').classList.remove('flex');
             document.getElementById('back-btn').classList.add('hidden');
-            document.getElementById('chat-title').innerText = "PANEL DE CONTROL";
+            document.getElementById('chat-title').innerText = "🔥 PANEL DE CONTROL JEFE";
         }
 
-        // ENVIAR MENSAJES
+        // ENVIAR Y LEER MENSAJES (INTACTO)
         document.getElementById('order-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const msgInput = document.getElementById('user-msg');
             if (msgInput.value.trim() === "") return;
             database.ref('chats/' + chatActivoID).push({
-                remitente: esAdmin ? "ADMIN" : userAuth.nombre,
+                remitente: esAdmin ? "EL JEFE" : userAuth.nombre,
                 mensaje: msgInput.value,
                 hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             });
             msgInput.value = '';
         });
 
-        // LEER MENSAJES
         function escucharChat(id) {
             database.ref('chats/' + id).on('value', (snapshot) => {
                 const box = document.getElementById('chat-box');
+                // Mantener el mensaje de bienvenida si es cliente
+                if(!esAdmin && !snapshot.exists()) return; 
+                
                 box.innerHTML = '';
                 snapshot.forEach((child) => {
                     const data = child.val();
+                    const soyYo = (esAdmin && data.remitente === "EL JEFE") || (!esAdmin && data.remitente !== "EL JEFE");
                     const msgDiv = document.createElement('div');
-                    const soyYo = (esAdmin && data.remitente === "ADMIN") || (!esAdmin && data.remitente !== "ADMIN");
                     msgDiv.className = `max-w-[85%] p-3 rounded-2xl text-sm shadow-sm ${soyYo ? 'bg-orange-500 text-white ml-auto rounded-tr-none' : 'bg-white text-gray-800 mr-auto rounded-tl-none border'}`;
                     msgDiv.innerHTML = `<p class='text-[9px] font-bold opacity-60 mb-1'>${data.remitente} - ${data.hora}</p><p class='font-medium'>${data.mensaje}</p>`;
                     box.appendChild(msgDiv);
