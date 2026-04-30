@@ -19,7 +19,7 @@
         
         <!-- SECCIÓN MENÚ CON SELECTOR DE CANTIDAD -->
         <section id="menu-section">
-            <h2 class="text-xl font-black text-orange-900 mb-4 border-b-2 border-yellow-400 inline-block uppercase italic">Menú (Mínimo 2 piezas el pedido)</h2>
+            <h2 class="text-xl font-black text-orange-900 mb-4 border-b-2 border-yellow-400 inline-block uppercase italic">Menú (Mínimo 2 piezas)</h2>
             <div class="space-y-4">
                 
                 <!-- Producto 1 -->
@@ -41,8 +41,8 @@
                 <!-- Producto 2 -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 flex flex-col gap-3">
                     <div class="flex justify-between items-center">
-                        <div><h3 class="font-bold text-lg">Elote (CHAROLA) </h3><p class="text-xs text-gray-500 italic">Asado al carbón o cocido.</p></div>
-                        <span class="font-bold text-green-600 text-xl">$80</span>
+                        <div><h3 class="font-bold text-lg">Elote Entero</h3><p class="text-xs text-gray-500 italic">Asado al carbón o cocido.</p></div>
+                        <span class="font-bold text-green-600 text-xl">$40</span>
                     </div>
                     <div class="flex items-center justify-between bg-stone-100 p-2 rounded-lg">
                         <div class="flex items-center gap-4">
@@ -64,7 +64,8 @@
                 <button id="back-btn" onclick="mostrarListaChats()" class="hidden bg-orange-800 px-3 py-1 rounded-full text-xs hover:bg-orange-900 transition">⬅ Volver</button>
             </div>
 
-            <div id="admin-list" class="hidden flex-1 overflow-y-auto p-2 bg-gray-100 space-y-2"></div>
+            <!-- Lista de Admin (Modificada para incluir botón de borrar) -->
+            <div id="admin-list" class="hidden flex-1 overflow-y-auto p-4 bg-gray-100 space-y-2"></div>
 
             <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-3 bg-stone-50 scroll-smooth">
                 <p class="text-center text-gray-400 text-xs mt-10 italic">Regístrate para iniciar tu pedido privado.</p>
@@ -126,7 +127,7 @@
             inputChat.focus();
         }
 
-        // REGISTRO Y ADMIN (Igual que antes pero optimizado)
+        // REGISTRO
         function registrarUsuario() {
             const n = document.getElementById('user-name').value;
             const t = document.getElementById('user-phone').value;
@@ -140,6 +141,7 @@
             } else { alert("Nombre y teléfono requeridos."); }
         }
 
+        // LOGIN ADMIN
         function loginAdmin() {
             const pass = prompt("Clave de Jefe:");
             if (pass === "Elotes2024") {
@@ -152,19 +154,53 @@
             }
         }
 
+        // CARGAR LISTA DE CHATS EN ADMIN CON OPCIÓN DE BORRAR
         function cargarListaChats() {
             database.ref('chats').on('value', (snapshot) => {
                 const list = document.getElementById('admin-list');
                 list.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    list.innerHTML = '<p class="text-center text-gray-500 text-sm mt-10">No hay pedidos pendientes.</p>';
+                    return;
+                }
+
                 snapshot.forEach((child) => {
                     const tel = child.key;
-                    const btn = document.createElement('div');
-                    btn.className = "bg-white p-4 rounded-xl shadow-sm border-l-8 border-orange-500 cursor-pointer flex justify-between items-center mb-2";
-                    btn.innerHTML = `<div><p class='font-black text-orange-900'>📱 ${tel}</p><p class='text-[10px] text-gray-400'>Nuevos mensajes</p></div><span class='text-orange-500'>➔</span>`;
-                    btn.onclick = () => abrirChatPrivado(tel);
-                    list.appendChild(btn);
+                    
+                    // Contenedor para el botón de chat y el botón de borrar
+                    const divContenedor = document.createElement('div');
+                    divContenedor.className = "flex gap-2 items-center mb-2";
+
+                    // Botón para entrar al chat
+                    const btnChat = document.createElement('div');
+                    btnChat.className = "flex-1 bg-white p-4 rounded-xl shadow-sm border-l-8 border-orange-500 cursor-pointer flex justify-between items-center";
+                    btnChat.innerHTML = `<div><p class='font-black text-orange-900'>📱 ${tel}</p><p class='text-[10px] text-gray-400'>Ver mensajes</p></div><span class='text-orange-500'>➔</span>`;
+                    btnChat.onclick = () => abrirChatPrivado(tel);
+
+                    // Botón para eliminar el chat completo
+                    const btnBorrar = document.createElement('button');
+                    btnBorrar.className = "bg-red-500 hover:bg-red-600 text-white p-4 rounded-xl shadow-sm transition active:scale-95";
+                    btnBorrar.innerHTML = "🗑️";
+                    btnBorrar.onclick = (e) => {
+                        e.stopPropagation(); // Evita que se abra el chat al dar clic en borrar
+                        eliminarChatCompleto(tel);
+                    };
+
+                    divContenedor.appendChild(btnChat);
+                    divContenedor.appendChild(btnBorrar);
+                    list.appendChild(divContenedor);
                 });
             });
+        }
+
+        // FUNCIÓN NUEVA PARA BORRAR CHAT
+        function eliminarChatCompleto(tel) {
+            if (confirm(`¿Estás seguro de que ya entregaste el pedido de ${tel} y quieres borrar su chat?`)) {
+                database.ref('chats/' + tel).remove()
+                    .then(() => console.log("Chat borrado correctamente"))
+                    .catch((error) => console.error("Error al borrar:", error));
+            }
         }
 
         function abrirChatPrivado(tel) {
@@ -185,6 +221,7 @@
             document.getElementById('chat-title').innerText = "PANEL DE CONTROL";
         }
 
+        // ENVIAR MENSAJES
         document.getElementById('order-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const msgInput = document.getElementById('user-msg');
@@ -197,6 +234,7 @@
             msgInput.value = '';
         });
 
+        // LEER MENSAJES
         function escucharChat(id) {
             database.ref('chats/' + id).on('value', (snapshot) => {
                 const box = document.getElementById('chat-box');
