@@ -119,6 +119,7 @@
             <div id="chat-header" class="bg-orange-600 p-4 text-white font-bold flex justify-between items-center shadow-md">
                 <span id="chat-title" class="truncate mr-2">Caja / Pedidos</span>
                 <button id="back-btn" onclick="mostrarListaChats()" class="hidden bg-orange-800 px-3 py-1 rounded-full text-xs hover:bg-orange-900 transition">⬅ Volver</button>
+                <button id="logout-btn" onclick="cerrarSesion()" class="hidden bg-orange-800 px-3 py-1 rounded-full text-[10px] hover:bg-orange-900 transition ml-auto">Salir</button>
             </div>
 
             <!-- Lista Admin -->
@@ -157,14 +158,23 @@
 
             <!-- Input de Mensaje -->
             <div id="order-wrapper" class="hidden flex-col border-t bg-white">
+                <div class="bg-green-50 p-3 border-b flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-gray-600 uppercase font-bold">Total de tu pedido</p>
+                        <p id="client-total" class="font-black text-green-700 text-xl">$0.00</p>
+                    </div>
+                    <span class="text-3xl">🛒</span>
+                </div>
                 <form id="order-form" class="p-3 flex gap-2">
                     <input type="text" id="user-msg" placeholder="Confirma tu pedido aquí..." class="flex-1 p-3 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-400 bg-gray-50">
                     <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded-xl font-black uppercase text-xs shadow-md">Enviar</button>
                 </form>
-                <!-- Botón Alternativo WhatsApp -->
-                <div class="bg-gray-50 p-2 text-center border-t">
-                    <button type="button" onclick="enviarPorWhatsApp()" class="text-[10px] font-bold text-green-700 flex items-center justify-center gap-1 w-full opacity-80 hover:opacity-100">
-                        ¿No responde el chat? Pedir directo por WhatsApp 💬
+                <div class="bg-gray-50 p-2 flex gap-2 border-t text-center">
+                    <button type="button" onclick="deshacerUltimoProducto()" class="flex-1 text-[10px] font-bold text-white bg-red-600 hover:bg-red-700 py-2 rounded transition">
+                        ↶ Deshacer último
+                    </button>
+                    <button type="button" onclick="enviarPorWhatsApp()" class="flex-1 text-[10px] font-bold text-green-700 hover:bg-green-50 py-2 rounded transition">
+                        ¿No responde? WhatsApp 💬
                     </button>
                 </div>
             </div>
@@ -189,25 +199,31 @@
         let esAdmin = false;
         let userAuth = null;
         let chatActivoID = null;
+        let ventasTotalesAdmin = 0;
+        let ultimaVentaMonto = 0;
+        let clienteTotalAcumulado = 0;
+        let ultimoProductoAgregado = null;
+        let ultimoMensajeID = null;
         const TASA_IVA = 0.16; // 16% de IVA
 
-        // === 1. INICIALIZACIÓN Y PERSISTENCIA ===
+        // === 1. INICIALIZACIÓN ===
         window.onload = () => {
             verificarHorario();
-            const sesionGuardada = localStorage.getItem('elotes_user');
-            if (sesionGuardada) {
-                userAuth = JSON.parse(sesionGuardada);
-                cargarSesionUsuario();
-            }
+            // Escuchar las ventas totales globales (solo para el admin)
+            database.ref('stats/ventas_totales').on('value', (snapshot) => {
+                ventasTotalesAdmin = snapshot.val() || 0;
+                actualizarVistaVentasAdmin();
+            });
         };
 
-        function cargarSesionUsuario() {
-            chatActivoID = userAuth.tel;
-            document.getElementById('login-fields').classList.add('hidden');
-            document.getElementById('order-wrapper').classList.remove('hidden');
-            document.getElementById('order-wrapper').classList.add('flex');
-            document.getElementById('chat-title').innerText = "Caja Privada: " + userAuth.nombre;
-            escucharChat(chatActivoID);
+        function actualizarVistaVentasAdmin() {
+            const divVentas = document.getElementById('admin-total-ventas');
+            if (divVentas) divVentas.innerText = formatMoney(ventasTotalesAdmin);
+        }
+
+        function actualizarTotalCliente() {
+            const divTotal = document.getElementById('client-total');
+            if (divTotal) divTotal.innerText = formatMoney(clienteTotalAcumulado);
         }
 
         function verificarHorario() {
@@ -258,18 +274,34 @@
             inputsToppings.forEach(input => toppingsArr.push(input.value));
             const textoToppings = toppingsArr.length > 0 ? ` Preparado con: ${toppingsArr.join(', ')}.` : '';
 
-            // Escribir en el chat desglosando el IVA
-            const inputChat = document.getElementById('user-msg');
-            inputChat.value = `Quiero: ${cantidad}x ${nombre}.${textoToppings} (Subtotal: $${subtotal.toFixed(2)} | IVA: $${iva.toFixed(2)} | Total a pagar: $${totalNeto.toFixed(2)})`;
+            // Actualizar total en Firebase para este chat
+            const chatRef = database.ref('chats/' + chatActivoID);
+            chatRef.child('total_acumulado').transaction((currentTotal) => {
+                return (currentTotal || 0) + totalNeto;
+            });
+
+            // Actualizar total del cliente
+            clienteTotalAcumulado += totalNeto;
+            actualizarTotalCliente();
             
-            // Efecto visual
+            // Guardar el último producto agregado para poder deshacerlo
+            ultimoProductoAgregado = { nombre: nombre, monto: totalNeto };
+            
+            // Enviar mensaje automático y guardar su ID
+            chatRef.push({
+                remitente: userAuth.nombre,
+                mensaje: `🛒 Añadido: ${cantidad}x ${nombre}.${textoToppings}`,
+                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            }).then((ref) => {
+                ultimoMensajeID = ref.key; // Guardar el ID del mensaje para poder borrarlo después
+            });
+            
             const btn = document.getElementById(btnId);
             const textoOriginal = btn.innerText;
             const colorOriginal = btn.className;
             
             btn.innerText = "¡EN EL CHAT! ✓";
             btn.className = "bg-green-500 text-white px-3 py-1.5 rounded-lg font-black text-[10px] uppercase shadow-md transition-all";
-            inputChat.focus();
 
             setTimeout(() => {
                 btn.innerText = textoOriginal;
@@ -278,6 +310,37 @@
         }
 
         // === 3. ALTERNATIVA WHATSAPP ===
+        function deshacerUltimoProducto() {
+            if (!ultimoProductoAgregado) {
+                alert("No hay productos para deshacer.");
+                return;
+            }
+            
+            if(confirm(`¿Deshacer: ${ultimoProductoAgregado.nombre}?\nSe restará ${formatMoney(ultimoProductoAgregado.monto)} del total.`)) {
+                clienteTotalAcumulado -= ultimoProductoAgregado.monto;
+                if (clienteTotalAcumulado < 0) clienteTotalAcumulado = 0;
+                actualizarTotalCliente();
+                
+                const chatRef = database.ref('chats/' + chatActivoID);
+                chatRef.child('total_acumulado').transaction((currentTotal) => {
+                    let nuevo = (currentTotal || 0) - ultimoProductoAgregado.monto;
+                    return nuevo < 0 ? 0 : nuevo;
+                });
+                
+                // Borrar el mensaje del chat
+                if (ultimoMensajeID) {
+                    chatRef.child(ultimoMensajeID).remove().then(() => {
+                        // Recargar el chat para que desaparezca visualmente
+                        escucharChat(chatActivoID);
+                    });
+                }
+                
+                ultimoProductoAgregado = null;
+                ultimoMensajeID = null;
+                alert("Producto deshecho ✓");
+            }
+        }
+
         function enviarPorWhatsApp() {
             const miNumeroLocal = "521XXXXXXXXXX"; 
             const msgChat = document.getElementById('user-msg').value;
@@ -294,10 +357,21 @@
             const t = document.getElementById('user-phone').value;
             if (n && t) {
                 userAuth = { nombre: n, tel: t.replace(/\s+/g, '') };
-                localStorage.setItem('elotes_user', JSON.stringify(userAuth));
+                
+                // Creamos un ID único para esta sesión específica usando un timestamp
+                chatActivoID = userAuth.tel + "_" + Date.now();
+                
+                document.getElementById('login-fields').classList.add('hidden');
+                document.getElementById('order-wrapper').classList.remove('hidden');
+                document.getElementById('order-wrapper').classList.add('flex');
+                document.getElementById('chat-title').innerText = "Caja Privada: " + n;
+                document.getElementById('logout-btn').classList.remove('hidden');
+                clienteTotalAcumulado = 0;
+                actualizarTotalCliente();
+
                 const box = document.getElementById('chat-box');
                 box.innerHTML = `<div class='max-w-[85%] p-3 rounded-2xl text-sm shadow-sm bg-white border mr-auto rounded-tl-none text-gray-800'><p class='font-medium'>¡Hola ${n}! Ve armando tu pedido en el menú y dale a Enviar. 👇</p></div>`;
-                cargarSesionUsuario();
+                escucharChat(chatActivoID);
             } else { alert("Necesitamos tu Nombre y Teléfono para atenderte."); }
         }
 
@@ -309,7 +383,8 @@
                 document.getElementById('order-wrapper').classList.add('hidden');
                 document.getElementById('admin-list').classList.remove('hidden');
                 document.getElementById('chat-box').classList.add('hidden');
-                document.getElementById('chat-title').innerText = "🔥 PANEL DE CONTROL JEFE";
+                document.getElementById('logout-btn').classList.add('hidden');
+                document.getElementById('chat-title').innerText = "🔥 PANEL JEFE";
                 cargarListaChats();
             }
         }
@@ -318,17 +393,77 @@
             database.ref('chats').on('value', (snapshot) => {
                 const list = document.getElementById('admin-list');
                 list.innerHTML = '';
-                if (!snapshot.exists()) { list.innerHTML = '<p class="text-center font-bold text-gray-400 mt-10">Sin pedidos pendientes.</p>'; return; }
 
+                // Encabezado de ventas totales para el Admin
+                const headerVentas = document.createElement('div');
+                headerVentas.className = "bg-orange-900 text-white p-4 rounded-2xl mb-4 shadow-inner flex justify-between items-center";
+                headerVentas.innerHTML = `
+                    <div>
+                        <p class='text-[10px] uppercase font-black opacity-60'>Ventas Acumuladas</p>
+                        <p id='admin-total-ventas' class='text-2xl font-black text-yellow-400'>${formatMoney(ventasTotalesAdmin)}</p>
+                    </div>
+                    <div class='flex flex-col items-end gap-1'>
+                        <span class='text-3xl'>💰</span>
+                        <div class='flex gap-1'>
+                            <button onclick='deshacerUltimaVenta()' class='text-[9px] bg-orange-800 hover:bg-red-700 px-2 py-1 rounded font-bold uppercase transition-colors'>Deshacer</button>
+                            <button onclick='reiniciarVentas()' class='text-[9px] bg-red-600 hover:bg-red-800 px-2 py-1 rounded font-bold uppercase transition-colors'>Reiniciar</button>
+                        </div>
+                    </div>`;
+                list.appendChild(headerVentas);
+
+                if (!snapshot.exists()) { list.innerHTML += '<p class="text-center font-bold text-gray-400 mt-10">Sin pedidos pendientes.</p>'; return; }
+
+                // 1. Convertimos el snapshot a un array para poder ordenarlo
+                let chatsArr = [];
                 snapshot.forEach((child) => {
-                    const tel = child.key;
+                    const id = child.key;
+                    // Extraemos el timestamp del ID (tel_timestamp)
+                    const timestamp = parseInt(id.split('_')[1]) || 0;
+                    chatsArr.push({ id, timestamp, snapshot: child });
+                });
+
+                // 2. Ordenamos por tiempo: el más antiguo arriba (#1) y el más nuevo al final
+                chatsArr.sort((a, b) => a.timestamp - b.timestamp);
+
+                const tipAdmin = document.createElement('p');
+                tipAdmin.className = "text-[9px] text-gray-400 text-center mb-2 italic";
+                tipAdmin.innerText = "💡 Doble clic para marcar como VENDIDO ($)";
+                list.appendChild(tipAdmin);
+
+                // 3. Dibujamos las tarjetas en el orden de la fila
+                chatsArr.forEach((item, index) => {
+                    const tel = item.id;
+                    const child = item.snapshot;
+                    const telLimpio = tel.split('_')[0];
+                    const totalChat = child.val().total_acumulado || 0;
+                    
+                    // Buscamos el nombre del usuario recorriendo los mensajes del chat
+                    let nombreUsuario = "Cliente";
+                    child.forEach((msgSnap) => {
+                        const msgData = msgSnap.val();
+                        if (msgData.remitente !== "EL JEFE") {
+                            nombreUsuario = msgData.remitente;
+                            return true; // Detener búsqueda al encontrar el primer mensaje del cliente
+                        }
+                    });
+
                     const divContenedor = document.createElement('div');
                     divContenedor.className = "flex gap-2 items-center mb-2";
 
                     const btnChat = document.createElement('div');
-                    btnChat.className = "flex-1 bg-white p-4 rounded-xl shadow-sm border-l-8 border-orange-500 cursor-pointer flex justify-between items-center";
-                    btnChat.innerHTML = `<div><p class='font-black text-orange-900'>📱 ${tel}</p><p class='text-[10px] text-gray-400'>Abrir conversación</p></div><span class='text-orange-500'>➔</span>`;
-                    btnChat.onclick = () => abrirChatPrivado(tel);
+                    // Estilo "Tipo Maíz": Fondo amarillo suave con borde lateral dorado/maíz intenso
+                    btnChat.className = "flex-1 bg-yellow-100 p-4 rounded-xl shadow-sm border-l-8 border-yellow-500 cursor-pointer flex justify-between items-center hover:bg-yellow-200 transition";
+                    btnChat.innerHTML = `<div><div class='flex items-center gap-2'><span class='bg-orange-600 text-white text-[9px] px-1.5 py-0.5 rounded-md font-bold'>#${index + 1}</span><p class='font-black text-orange-900 uppercase'>👤 ${nombreUsuario}</p></div><p class='text-[10px] text-orange-700 font-bold ml-7'>📱 ${telLimpio}</p></div><div class='text-right'><p class='text-xs font-black text-green-700'>${formatMoney(totalChat)}</p></div>`;
+                    
+                    let timer = 0;
+                    btnChat.onclick = () => {
+                        clearTimeout(timer);
+                        timer = setTimeout(() => abrirChatPrivado(tel, nombreUsuario), 250);
+                    };
+                    btnChat.ondblclick = () => {
+                        clearTimeout(timer);
+                        cobrarPedido(tel, totalChat, nombreUsuario);
+                    };
 
                     const btnBorrar = document.createElement('button');
                     btnBorrar.className = "bg-red-500 hover:bg-red-600 text-white p-4 rounded-xl shadow-sm transition active:scale-95";
@@ -342,20 +477,64 @@
             });
         }
 
+        function cobrarPedido(id, monto, nombre) {
+            if(confirm(`¿Confirmar venta de ${nombre} por ${formatMoney(monto)}?`)) {
+                ultimaVentaMonto = monto; // Guardamos para poder deshacer si cancelan después
+                // Sumar al total global en Firebase
+                database.ref('stats/ventas_totales').transaction((current) => (current || 0) + monto);
+                // Eliminar el chat
+                database.ref('chats/' + id).remove();
+                alert("¡VENTA REGISTRADA! 💵");
+            }
+        }
+
+        function deshacerUltimaVenta() {
+            if (ultimaVentaMonto <= 0) {
+                alert("No hay ventas recientes para deshacer.");
+                return;
+            }
+            
+            if(confirm(`¿Quieres restar ${formatMoney(ultimaVentaMonto)} de las ventas totales? Use esto solo si el cliente canceló después de marcarlo como vendido.`)) {
+                database.ref('stats/ventas_totales').transaction((current) => {
+                    let nuevo = (current || 0) - ultimaVentaMonto;
+                    return nuevo < 0 ? 0 : nuevo;
+                });
+                ultimaVentaMonto = 0; // Reset para no restar dos veces lo mismo
+                alert("Venta anulada del total. 📉");
+            }
+        }
+
+        function reiniciarVentas() {
+            if(confirm("¿Reiniciar el contador de ventas a $0? Es como empezar un día nuevo.")) {
+                database.ref('stats/ventas_totales').set(0);
+                ultimaVentaMonto = 0;
+                alert("Contador reiniciado a $0. ¡Nuevo día! 🌅");
+            }
+        }
+
+        function borrarTodosLosChats() {
+            if (confirm("¿ESTÁS COMPLETAMENTE SEGURO? Se borrará TODO el historial de todos los clientes de la base de datos permanentemente.")) {
+                database.ref('chats').remove()
+                    .then(() => alert("Historial vaciado correctamente."))
+                    .catch(e => alert("Error: " + e.message));
+            }
+        }
+
         function eliminarChatCompleto(tel) {
             if (confirm(`¿Marcar el pedido de ${tel} como ENTREGADO y borrar chat?`)) {
                 database.ref('chats/' + tel).remove();
             }
         }
 
-        function abrirChatPrivado(tel) {
+        function abrirChatPrivado(tel, nombre) {
             chatActivoID = tel;
             document.getElementById('admin-list').classList.add('hidden');
             document.getElementById('chat-box').classList.remove('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
             document.getElementById('order-wrapper').classList.remove('hidden');
             document.getElementById('order-wrapper').classList.add('flex');
             document.getElementById('back-btn').classList.remove('hidden');
-            document.getElementById('chat-title').innerText = "Atendiendo: " + tel;
+            document.getElementById('chat-title').innerText = "Atendiendo a: " + nombre;
             escucharChat(tel);
         }
 
@@ -365,7 +544,14 @@
             document.getElementById('order-wrapper').classList.add('hidden');
             document.getElementById('order-wrapper').classList.remove('flex');
             document.getElementById('back-btn').classList.add('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
             document.getElementById('chat-title').innerText = "🔥 PANEL DE CONTROL JEFE";
+        }
+
+        function cerrarSesion() {
+            // Al no haber localStorage, simplemente recargamos la página para resetear todo
+            clienteTotalAcumulado = 0;
+            location.reload();
         }
 
         // === ENVIAR Y LEER MENSAJES (MEJORADO PARA VER QUIÉN ES QUIÉN) ===
@@ -382,6 +568,7 @@
         });
 
         function renderMessage(data) {
+            if (!data || !data.remitente || !data.mensaje) return;
             const box = document.getElementById('chat-box');
             const soyYo = (esAdmin && data.remitente === "EL JEFE") || (!esAdmin && data.remitente === userAuth?.nombre);
             const esAdminMensaje = data.remitente === "EL JEFE";
