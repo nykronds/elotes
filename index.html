@@ -191,7 +191,25 @@
         let chatActivoID = null;
         const TASA_IVA = 0.16; // 16% de IVA
 
-        // === 1. HORARIO DINÁMICO ===
+        // === 1. INICIALIZACIÓN Y PERSISTENCIA ===
+        window.onload = () => {
+            verificarHorario();
+            const sesionGuardada = localStorage.getItem('elotes_user');
+            if (sesionGuardada) {
+                userAuth = JSON.parse(sesionGuardada);
+                cargarSesionUsuario();
+            }
+        };
+
+        function cargarSesionUsuario() {
+            chatActivoID = userAuth.tel;
+            document.getElementById('login-fields').classList.add('hidden');
+            document.getElementById('order-wrapper').classList.remove('hidden');
+            document.getElementById('order-wrapper').classList.add('flex');
+            document.getElementById('chat-title').innerText = "Caja Privada: " + userAuth.nombre;
+            escucharChat(chatActivoID);
+        }
+
         function verificarHorario() {
             const horaActual = new Date().getHours();
             const statusBadge = document.getElementById('shop-status');
@@ -203,9 +221,10 @@
                 statusBadge.className = 'text-[10px] font-bold text-red-900 bg-red-200 px-3 py-1 rounded-full shadow-sm';
             }
         }
-        verificarHorario();
 
         // === 2. LÓGICA DE MENÚ CON TOTALES Y TOPPINGS (AHORA CON IVA) ===
+        const formatMoney = (amount) => amount.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+
         function cambiarCant(idCant, val, precioBase, idTotal, min = 1) {
             const spanCant = document.getElementById(idCant);
             const spanTot = document.getElementById(idTotal);
@@ -213,13 +232,10 @@
             actual += val;
             if (actual < min) actual = min; 
             
-            // Cálculo de impuestos
-            let subtotal = actual * precioBase;
-            let iva = subtotal * TASA_IVA;
-            let totalNeto = subtotal + iva;
+            const totalNeto = (actual * precioBase) * (1 + TASA_IVA);
             
             spanCant.innerText = actual;
-            spanTot.innerHTML = "$" + totalNeto.toFixed(2) + " <span class='text-[8px] text-gray-500 block font-normal'>con IVA</span>"; 
+            spanTot.innerHTML = `${formatMoney(totalNeto)} <span class='text-[8px] text-gray-500 block font-normal'>con IVA</span>`; 
         }
 
         function pedirProducto(nombre, idCant, precioBase, classToppings, btnId) {
@@ -278,17 +294,10 @@
             const t = document.getElementById('user-phone').value;
             if (n && t) {
                 userAuth = { nombre: n, tel: t.replace(/\s+/g, '') };
-                chatActivoID = userAuth.tel;
-                
-                document.getElementById('login-fields').classList.add('hidden');
-                document.getElementById('order-wrapper').classList.remove('hidden');
-                document.getElementById('order-wrapper').classList.add('flex');
-                document.getElementById('chat-title').innerText = "Caja Privada: " + n;
-                
+                localStorage.setItem('elotes_user', JSON.stringify(userAuth));
                 const box = document.getElementById('chat-box');
-                box.innerHTML = `<div class='max-w-[85%] p-3 rounded-2xl text-sm shadow-sm bg-white border mr-auto rounded-tl-none text-gray-800'><p class='font-medium'>¡Hola ${n}! Ve armando tu pedido en el menú, dale 'Añadir al chat' y cuando estés listo dale a Enviar aquí abajo. 👇</p></div>`;
-                
-                escucharChat(chatActivoID);
+                box.innerHTML = `<div class='max-w-[85%] p-3 rounded-2xl text-sm shadow-sm bg-white border mr-auto rounded-tl-none text-gray-800'><p class='font-medium'>¡Hola ${n}! Ve armando tu pedido en el menú y dale a Enviar. 👇</p></div>`;
+                cargarSesionUsuario();
             } else { alert("Necesitamos tu Nombre y Teléfono para atenderte."); }
         }
 
@@ -372,34 +381,33 @@
             msgInput.value = '';
         });
 
+        function renderMessage(data) {
+            const box = document.getElementById('chat-box');
+            const soyYo = (esAdmin && data.remitente === "EL JEFE") || (!esAdmin && data.remitente === userAuth?.nombre);
+            const esAdminMensaje = data.remitente === "EL JEFE";
+            const icono = esAdminMensaje ? "👨‍🍳" : "👤";
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `max-w-[85%] p-3 rounded-2xl text-sm shadow-sm mb-3 ${soyYo ? 'bg-orange-500 text-white ml-auto rounded-tr-none' : 'bg-white text-gray-800 mr-auto rounded-tl-none border border-gray-200'}`;
+            
+            msgDiv.innerHTML = `
+                <div class='flex items-center gap-1 mb-1 border-b pb-1 ${soyYo ? 'border-orange-400' : 'border-gray-200'}'>
+                    <span class='text-xs'>${icono}</span>
+                    <span class='text-[10px] font-black uppercase tracking-wider'>${data.remitente}</span>
+                    <span class='text-[9px] opacity-75 ml-auto'>${data.hora}</span>
+                </div>
+                <p class='font-medium leading-snug mt-1'>${data.mensaje}</p>
+            `;
+            box.appendChild(msgDiv);
+            box.scrollTop = box.scrollHeight;
+        }
+
         function escucharChat(id) {
-            database.ref('chats/' + id).on('value', (snapshot) => {
-                const box = document.getElementById('chat-box');
-                if(!esAdmin && !snapshot.exists()) return; 
-                
-                box.innerHTML = '';
-                snapshot.forEach((child) => {
-                    const data = child.val();
-                    const soyYo = (esAdmin && data.remitente === "EL JEFE") || (!esAdmin && data.remitente !== "EL JEFE");
-                    const esAdminMensaje = data.remitente === "EL JEFE";
-                    const icono = esAdminMensaje ? "👨‍🍳" : "👤";
-                    
-                    const msgDiv = document.createElement('div');
-                    // Aplicar colores y posiciones según quién escribe
-                    msgDiv.className = `max-w-[85%] p-3 rounded-2xl text-sm shadow-sm ${soyYo ? 'bg-orange-500 text-white ml-auto rounded-tr-none' : 'bg-white text-gray-800 mr-auto rounded-tl-none border border-gray-200'}`;
-                    
-                    // Diseño mejorado del encabezado del mensaje
-                    msgDiv.innerHTML = `
-                        <div class='flex items-center gap-1 mb-1 border-b pb-1 ${soyYo ? 'border-orange-400' : 'border-gray-200'}'>
-                            <span class='text-xs'>${icono}</span>
-                            <span class='text-[10px] font-black uppercase tracking-wider'>${data.remitente}</span>
-                            <span class='text-[9px] opacity-75 ml-auto'>${data.hora}</span>
-                        </div>
-                        <p class='font-medium leading-snug mt-1'>${data.mensaje}</p>
-                    `;
-                    box.appendChild(msgDiv);
-                });
-                box.scrollTop = box.scrollHeight;
+            const ref = database.ref('chats/' + id);
+            ref.off(); // Limpiar listeners previos
+            document.getElementById('chat-box').innerHTML = ''; // Limpiar UI
+            ref.on('child_added', (snapshot) => {
+                renderMessage(snapshot.val());
             });
         }
     </script>
